@@ -22,7 +22,7 @@ A self-hosted relay server for the [Clipboard Push](https://clipboardpush.com) a
 ## Quick Start (Docker)
 
 ```bash
-git clone https://github.com/clipboardpush/clipboard-push-server.git
+git clone https://github.com/yelosheng/clipboard-push-server.git
 cd clipboard-push-server
 cp .env.example .env
 # Edit .env and fill in your values (see Configuration section)
@@ -84,8 +84,8 @@ Clients must include `"protocol_version": "4.0"` in file transfer events. See [R
 
 | Client | Link |
 |---|---|
-| Android | [Google Play](https://play.google.com/store/apps/details?id=com.clipboardpush.plus) — [source on GitHub](https://github.com/clipboardpush/clipboard-push-android) |
-| PC (Windows) | [GitHub](https://github.com/clipboardpush/clipboard-push-win32) · [Releases](https://github.com/clipboardpush/clipboard-push-win32/releases) |
+| Android | [Google Play](https://play.google.com/store/apps/details?id=com.clipboardpush.plus) — [source on GitHub](https://github.com/yelosheng/clipboard-push-android) |
+| PC (Windows) | [GitHub](https://github.com/yelosheng/clipboard-push-win32) · [Releases](https://github.com/yelosheng/clipboard-push-win32/releases) |
 
 ## Contributing
 

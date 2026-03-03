@@ -57,6 +57,10 @@ def register_socket_events(
             socketio.emit('client_list_update', get_serialized_sessions(), room='dashboard_room')
         socketio.emit('server_stats', {'clients': len(CLIENT_SESSIONS), 'msg': 'Client disconnected'}, room='dashboard_room')
 
+    @socketio.on('client_ping')
+    def on_client_ping():
+        emit('server_pong')
+
     @socketio.on('join')
     def on_join(data):
         payload = data if isinstance(data, dict) else {}

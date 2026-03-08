@@ -1,5 +1,6 @@
 ﻿import logging
 import os
+import threading
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -85,6 +86,19 @@ from .signal_core import (
     update_client_probe_meta,
     update_transfer_state,
 )
+from .services.history_db import (
+    init_db as history_init_db,
+    insert_event as history_insert_event,
+    upsert_client as history_upsert_client,
+    close_event as history_close_event,
+    update_client_geo as history_update_client_geo,
+    query_summary as history_query_summary_fn,
+    query_clients as history_query_clients_fn,
+    query_hourly as history_query_hourly_fn,
+    query_daily as history_query_daily_fn,
+    query_countries as history_query_countries_fn,
+)
+from .services.geo_service import get_client_ip, lookup_ip as geo_lookup_ip
 from .socket_events import register_socket_events
 
 
@@ -92,6 +106,12 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+HISTORY_DB_PATH = os.path.join(BASE_DIR, 'data', 'history.db')
+history_init_db(HISTORY_DB_PATH)
+
+_ACTIVE_SID_EVENTS: dict = {}
+_ACTIVE_SID_LOCK = threading.Lock()
+
 app = Flask(__name__, static_folder=os.path.join(BASE_DIR, 'static'), template_folder=os.path.join(BASE_DIR, 'templates'))
 app.config['SECRET_KEY'] = FLASK_SECRET_KEY
 
@@ -100,7 +120,9 @@ login_manager.init_app(app)
 login_manager.login_view = 'login'
 register_user_loader(login_manager)
 
-socketio = SocketIO(app, cors_allowed_origins='*')
+_enable_engine_log = os.environ.get('FLASK_DEBUG', '0') == '1'
+socketio = SocketIO(app, cors_allowed_origins='*',
+                    logger=_enable_engine_log, engineio_logger=_enable_engine_log)
 bind_runtime(socketio, logger)
 
 # Eagerly initialise FCM so startup errors surface immediately (non-fatal)
@@ -179,6 +201,37 @@ register_routes(
     DOTENV_PATH=SETTINGS_OVERRIDE_PATH,
 )
 
+def _record_join(*, client_id, device_name, client_type, room_id):
+    from flask import request as _req
+    ip = get_client_ip(_req)
+    sid = _req.sid
+    event_id = history_insert_event(
+        HISTORY_DB_PATH, client_id, device_name, room_id, client_type, ip
+    )
+    history_upsert_client(
+        HISTORY_DB_PATH, client_id, device_name, client_type, room_id, ip
+    )
+    with _ACTIVE_SID_LOCK:
+        _ACTIVE_SID_EVENTS[sid] = (event_id, client_id)
+
+    def _geo_update():
+        geo = geo_lookup_ip(ip)
+        if geo.get('country'):
+            history_update_client_geo(
+                HISTORY_DB_PATH, client_id,
+                geo['country'], geo['country_code'], geo['region'], geo['city'],
+            )
+    socketio.start_background_task(_geo_update)
+
+
+def _record_disconnect(*, sid):
+    with _ACTIVE_SID_LOCK:
+        entry = _ACTIVE_SID_EVENTS.pop(sid, None)
+    if entry:
+        event_id, _ = entry
+        history_close_event(HISTORY_DB_PATH, event_id)
+
+
 register_socket_events(
     socketio,
     logger=logger,
@@ -218,6 +271,8 @@ register_socket_events(
     transfer_decision_timeout_worker=transfer_decision_timeout_worker,
     TRANSFER_CONTEXTS=TRANSFER_CONTEXTS,
     instruct_finish=instruct_finish,
+    record_join=_record_join,
+    record_disconnect=_record_disconnect,
 )
 
 

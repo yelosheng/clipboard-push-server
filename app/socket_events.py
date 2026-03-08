@@ -42,23 +42,43 @@ def register_socket_events(
     transfer_decision_timeout_worker,
     TRANSFER_CONTEXTS,
     instruct_finish,
+    record_join=None,
+    record_disconnect=None,
 ):
     @socketio.on('connect')
     def on_connect():
         logger.info(f"Client connected: {request.sid}")
+        emit_activity_log('connect', None, 'New connection', f'sid={request.sid}')
         socketio.emit('server_stats', {'clients': len(CLIENT_SESSIONS), 'msg': 'New connection'}, room='dashboard_room')
 
     @socketio.on('disconnect')
     def on_disconnect():
         logger.info(f"Client disconnected: {request.sid}")
+        # Capture info BEFORE purge — detach_sid_from_tracking clears all tracking data
+        pre_client_id = get_client_from_sid(request.sid)
+        pre_device_name = CLIENT_DEVICE_NAMES.get(pre_client_id, pre_client_id) if pre_client_id != 'Unknown' else request.sid
+        pre_room = CLIENT_ROOMS.get(pre_client_id) if pre_client_id != 'Unknown' else None
+
         removed_client = detach_sid_from_tracking(request.sid, reason='peer_disconnected')
         if removed_client:
             logger.info(f"Removed SID {request.sid} from client {removed_client}")
             socketio.emit('client_list_update', get_serialized_sessions(), room='dashboard_room')
+            emit_activity_log('disconnect', pre_room, pre_device_name,
+                             f'reason=peer_disconnected',
+                             client_id=removed_client)
+        else:
+            emit_activity_log('disconnect', pre_room, pre_device_name,
+                             f'reason=peer_disconnected (unregistered)')
         socketio.emit('server_stats', {'clients': len(CLIENT_SESSIONS), 'msg': 'Client disconnected'}, room='dashboard_room')
+        if record_disconnect:
+            record_disconnect(sid=request.sid)
 
     @socketio.on('client_ping')
     def on_client_ping():
+        sender = get_client_from_sid(request.sid)
+        device_name = CLIENT_DEVICE_NAMES.get(sender, sender) if sender != 'Unknown' else request.sid
+        room = CLIENT_ROOMS.get(sender) if sender != 'Unknown' else None
+        emit_activity_log('heartbeat', room, device_name, 'ping → pong', client_id=sender if sender != 'Unknown' else None)
         emit('server_pong')
 
     @socketio.on('join')
@@ -134,6 +154,15 @@ def register_socket_events(
 
         logger.info(f"Registered client_id {client_id} with sid {request.sid}. Current Rooms: {CLIENT_ROOMS}")
         socketio.emit('client_list_update', get_serialized_sessions(), room='dashboard_room')
+        device_name_display = CLIENT_DEVICE_NAMES.get(client_id, client_id)
+        emit_activity_log('join', room, device_name_display, f'type={client_type}', client_id=client_id)
+        if record_join and room and room != 'dashboard_room' and client_id:
+            record_join(
+                client_id=client_id,
+                device_name=CLIENT_DEVICE_NAMES.get(client_id, client_id),
+                client_type=client_type,
+                room_id=room,
+            )
 
     @socketio.on('leave')
     def on_leave(data):
@@ -143,9 +172,15 @@ def register_socket_events(
             leave_room(room)
             emit('status', {'msg': f'Left room: {room}'}, room=room)
             logger.info(f"Client left room: {room}")
+            # Capture device_name before detach purges it
+            pre_leave_client = get_client_from_sid(request.sid)
+            pre_leave_name = CLIENT_DEVICE_NAMES.get(pre_leave_client, pre_leave_client) if pre_leave_client != 'Unknown' else request.sid
             removed_client = detach_sid_from_tracking(request.sid, reason='peer_left_room', room_hint=room)
             if removed_client:
                 socketio.emit('client_list_update', get_serialized_sessions(), room='dashboard_room')
+                emit_activity_log('leave', room, pre_leave_name, 'reason=peer_left_room', client_id=removed_client)
+            else:
+                emit_activity_log('leave', room, pre_leave_name, 'reason=peer_left_room')
             broadcast_room_stats(room)
             emit_room_state_changed(room, reason='peer_left_room')
 

@@ -21,7 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 datasets: [{ label: 'Sessions', data: data.map(d => d.count),
                     backgroundColor: BAR_COLOR, borderRadius: 4 }]
             },
-            options: { plugins: { legend: { display: false } },
+            options: { maintainAspectRatio: false, plugins: { legend: { display: false } },
                 scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
         });
     }).catch(() => {});
@@ -36,7 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     borderColor: LINE_COLOR, backgroundColor: 'rgba(99,179,237,0.1)',
                     fill: true, tension: 0.3, pointRadius: 3 }]
             },
-            options: { plugins: { legend: { display: false } },
+            options: { maintainAspectRatio: false, plugins: { legend: { display: false } },
                 scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
         });
     }).catch(() => {});
@@ -67,14 +67,14 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(data => { renderTable(data.clients || []); renderPager(data.total || 0); })
             .catch(() => {
                 document.getElementById('h-client-tbody').innerHTML =
-                    '<tr><td colspan="7" class="empty-cell">Failed to load.</td></tr>';
+                    '<tr><td colspan="8" class="empty-cell">Failed to load.</td></tr>';
             });
     }
 
     function renderTable(clients) {
         const tbody = document.getElementById('h-client-tbody');
         if (!clients.length) {
-            tbody.innerHTML = '<tr><td colspan="7" class="empty-cell">No records found.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" class="empty-cell">No records found.</td></tr>';
             return;
         }
         tbody.innerHTML = clients.map(c => {
@@ -85,6 +85,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td>${esc(c.device_name || c.client_id)}</td>
                 <td><span class="type-chip"><span class="type-glyph" aria-hidden="true">${esc(glyph)}</span>${esc(typeLabel)}</span></td>
                 <td>${esc(loc)}</td>
+                <td class="text-meta">${esc(c.ip_address || '—')}</td>
                 <td>${esc(c.room_id || '—')}</td>
                 <td class="text-meta">${esc(fmtDate(c.first_seen))}</td>
                 <td class="text-meta">${esc(fmtDate(c.last_seen))}</td>

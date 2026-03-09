@@ -208,26 +208,33 @@ register_routes(
 )
 
 def _record_join(*, client_id, device_name, client_type, room_id):
-    from flask import request as _req
-    ip = get_client_ip(_req)
-    sid = _req.sid
-    event_id = history_insert_event(
-        HISTORY_DB_PATH, client_id, device_name, room_id, client_type, ip
-    )
-    history_upsert_client(
-        HISTORY_DB_PATH, client_id, device_name, client_type, room_id, ip
-    )
-    with _ACTIVE_SID_LOCK:
-        _ACTIVE_SID_EVENTS[sid] = (event_id, client_id)
+    try:
+        from flask import request as _req
+        ip = get_client_ip(_req)
+        sid = _req.sid
+        event_id = history_insert_event(
+            HISTORY_DB_PATH, client_id, device_name, room_id, client_type, ip
+        )
+        history_upsert_client(
+            HISTORY_DB_PATH, client_id, device_name, client_type, room_id, ip
+        )
+        with _ACTIVE_SID_LOCK:
+            _ACTIVE_SID_EVENTS[sid] = (event_id, client_id)
+        logger.info("history: recorded join client_id=%s sid=%s ip=%s", client_id, sid, ip)
 
-    def _geo_update():
-        geo = geo_lookup_ip(ip)
-        if geo.get('country'):
-            history_update_client_geo(
-                HISTORY_DB_PATH, client_id,
-                geo['country'], geo['country_code'], geo['region'], geo['city'],
-            )
-    socketio.start_background_task(_geo_update)
+        def _geo_update():
+            try:
+                geo = geo_lookup_ip(ip)
+                if geo.get('country'):
+                    history_update_client_geo(
+                        HISTORY_DB_PATH, client_id,
+                        geo['country'], geo['country_code'], geo['region'], geo['city'],
+                    )
+            except Exception as e:
+                logger.error("history: geo update failed for %s: %s", client_id, e)
+        socketio.start_background_task(_geo_update)
+    except Exception as e:
+        logger.error("history: _record_join failed for client_id=%s: %s", client_id, e, exc_info=True)
 
 
 def _record_disconnect(*, sid):

@@ -41,6 +41,8 @@ CREATE INDEX IF NOT EXISTS idx_clients_last_seen   ON clients(last_seen);
 
 
 def init_db(db_path: str):
+    import os
+    os.makedirs(os.path.dirname(db_path), exist_ok=True)
     with _lock:
         con = sqlite3.connect(db_path)
         con.executescript(SCHEMA)

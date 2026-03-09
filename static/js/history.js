@@ -17,7 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
         new Chart(document.getElementById('chart-hourly'), {
             type: 'bar',
             data: {
-                labels: data.map(d => `${String(d.hour).padStart(2, '0')}:00`),
+                labels: data.map(d => `${String((d.hour + 8) % 24).padStart(2, '0')}:00`),
                 datasets: [{ label: 'Sessions', data: data.map(d => d.count),
                     backgroundColor: BAR_COLOR, borderRadius: 4 }]
             },
@@ -124,7 +124,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (el) el.textContent = val;
     }
     function fmt(n) { return n != null ? Number(n).toLocaleString('en-US') : '-'; }
-    function fmtDate(s) { return s ? s.replace('T', ' ').slice(0, 16) : '—'; }
+    function fmtDate(s) {
+        if (!s) return '—';
+        const d = new Date(s.replace(' ', 'T') + 'Z'); // stored as UTC
+        const bj = new Date(d.getTime() + 8 * 3600 * 1000); // UTC+8
+        return bj.toISOString().replace('T', ' ').slice(0, 16);
+    }
     function esc(s) {
         return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     }

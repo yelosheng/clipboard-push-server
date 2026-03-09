@@ -33,12 +33,12 @@
     </section>
 
     <!-- Charts row: Peak Hours + Daily Trend -->
-    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:1rem; margin-top:1rem;">
-        <section class="r2-panel">
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-top:1rem;">
+        <section class="r2-panel" style="grid-column:auto;">
             <div class="section-head"><h3>Peak Hours (UTC)</h3></div>
             <div style="padding:.75rem 0;"><canvas id="chart-hourly"></canvas></div>
         </section>
-        <section class="r2-panel">
+        <section class="r2-panel" style="grid-column:auto;">
             <div class="section-head"><h3>Daily Trend (Last 30 Days)</h3></div>
             <div style="padding:.75rem 0;"><canvas id="chart-daily"></canvas></div>
         </section>
@@ -89,5 +89,5 @@
 
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
-<script src="{{ url_for('static', filename='js/history.js') }}?v=20260309c"></script>
+<script src="{{ url_for('static', filename='js/history.js') }}?v=20260309d"></script>
 {% endblock %}

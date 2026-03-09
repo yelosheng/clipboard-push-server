@@ -21,7 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 datasets: [{ label: 'Sessions', data: data.map(d => d.count),
                     backgroundColor: BAR_COLOR, borderRadius: 4 }]
             },
-            options: { aspectRatio: 1.8, plugins: { legend: { display: false } },
+            options: { aspectRatio: 3.5, plugins: { legend: { display: false } },
                 scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
         });
     }).catch(() => {});
@@ -36,7 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     borderColor: LINE_COLOR, backgroundColor: 'rgba(99,179,237,0.1)',
                     fill: true, tension: 0.3, pointRadius: 3 }]
             },
-            options: { aspectRatio: 1.8, plugins: { legend: { display: false } },
+            options: { aspectRatio: 3.5, plugins: { legend: { display: false } },
                 scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
         });
     }).catch(() => {});

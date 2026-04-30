@@ -245,6 +245,11 @@ def register_socket_events(
         emit_activity_log('lan_probe_result', room, sender, f"{probe_id}: {normalized_result}")
         emit_room_state_changed(room, reason='probe_result')
 
+        if normalized_result in {'fail', 'timeout'}:
+            for ctx in list(TRANSFER_CONTEXTS.values()):
+                if ctx.get('room') == room and ctx.get('status') in {'created', 'offered', 'waiting_result'}:
+                    instruct_upload_relay(ctx, 'probe_diff_lan')
+
     @socketio.on('clipboard_push')
     def handle_clipboard_push(data):
         room = data.get('room')
@@ -334,8 +339,18 @@ def register_socket_events(
 
         room_state = get_room_lan_state(room)
         if room_state == 'PAIR_DIFF_LAN':
+            # W1: forward a sanitized file_available (LAN URL stripped) to the
+            # receiver so its state machine sees the announcement and doesn't
+            # sit waiting for it. The receiver still gets file_need_relay /
+            # transfer_command and uses the relay download URL in file_sync.
+            sanitized = {k: v for k, v in payload.items() if k != 'local_url'}
+            emit('file_available', sanitized, room=room, include_self=False)
+            debug_signal_log('tx', sanitized, room=room, event='file_available', sender=sender)
             instruct_upload_relay(context, 'room_diff_lan')
-            logger.info(f"Skipped file_available for room {room} due to PAIR_DIFF_LAN; instructed sender {sender} to relay")
+            filename = payload.get('filename', 'Unknown File')
+            file_id = payload.get('file_id', 'Unknown ID')
+            emit_activity_log('file_available', room, sender, f"{filename} ({file_id}) [no_lan]")
+            logger.info(f"Forwarded sanitized file_available (no local_url) to room {room} due to PAIR_DIFF_LAN; instructed sender {sender} to relay")
             return
 
         emit('file_available', payload, room=room, include_self=False)

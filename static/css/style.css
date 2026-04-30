@@ -643,7 +643,7 @@ input::placeholder {
 
 .log-item {
     display: grid;
-    grid-template-columns: 76px 128px minmax(120px, 220px) minmax(0, 1fr);
+    grid-template-columns: 76px 128px minmax(180px, 340px) minmax(0, 1fr);
     gap: 8px;
     padding: 8px 0;
     border-bottom: 1px solid rgba(40, 70, 106, 0.58);
@@ -783,6 +783,83 @@ input::placeholder {
     color: #bbf7d0;
 }
 
+/* Client filter dropdown */
+.client-filter-select {
+    background: rgba(9, 20, 35, 0.85);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    color: var(--text-main);
+    font-family: var(--font-body);
+    font-size: 0.78rem;
+    padding: 4px 10px;
+    min-height: 30px;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='%239bb1cc'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    padding-right: 24px;
+    max-width: 200px;
+    transition: border-color 160ms ease;
+}
+
+.client-filter-select:hover,
+.client-filter-select:focus {
+    border-color: var(--accent);
+    outline: none;
+}
+
+/* Color dots for client identification */
+.client-color-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    vertical-align: middle;
+    margin-right: 4px;
+    flex-shrink: 0;
+}
+
+.log-client-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 5px;
+    vertical-align: middle;
+    flex-shrink: 0;
+}
+
+/* New event type tag colors */
+.log-item.level-connect .log-tag {
+    color: #4ade80;
+}
+
+.log-item.level-disconnect .log-tag {
+    color: #fb7185;
+}
+
+.log-item.level-join .log-tag {
+    color: #60a5fa;
+}
+
+.log-item.level-leave .log-tag {
+    color: #fbbf24;
+}
+
+.log-item.level-heartbeat .log-tag {
+    color: #f9a8d4;
+}
+
+.log-item.level-transfer_command .log-tag {
+    color: #c4b5fd;
+}
+
+.log-item.level-transfer_state .log-tag {
+    color: #a5b4fc;
+}
+
 
 @media (max-width: 1060px) {
     .auth-layout {
@@ -864,9 +941,11 @@ input::placeholder {
     0% {
         box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.34);
     }
+
     70% {
         box-shadow: 0 0 0 8px rgba(74, 222, 128, 0);
     }
+
     100% {
         box-shadow: 0 0 0 0 rgba(74, 222, 128, 0);
     }

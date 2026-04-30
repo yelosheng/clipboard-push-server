@@ -61,6 +61,11 @@
     };
 
     const activityTypeOrder = [
+        "connect",
+        "disconnect",
+        "join",
+        "leave",
+        "heartbeat",
         "sys",
         "err",
         "sync",
@@ -77,10 +82,17 @@
         "lan_probe_request",
         "lan_probe_result",
         "peer_network_update",
+        "transfer_command",
+        "transfer_state",
         "api_relay"
     ];
 
     const activityTypeLabels = {
+        connect: "🟢 Connect",
+        disconnect: "🔴 Disconnect",
+        join: "📥 Join",
+        leave: "📤 Leave",
+        heartbeat: "💓 Heartbeat",
         sys: "System",
         err: "Error",
         sync: "Sync",
@@ -97,11 +109,37 @@
         lan_probe_request: "Probe Request",
         lan_probe_result: "Probe Result",
         peer_network_update: "Network Update",
+        transfer_command: "Transfer Cmd",
+        transfer_state: "Transfer State",
         api_relay: "API Relay"
     };
 
     const knownActivityTypes = new Set(activityTypeOrder);
     const enabledActivityTypes = new Set(activityTypeOrder);
+
+    // --- Client color palette (12 distinct colors for easy identification) ---
+    const clientColorPalette = [
+        "#22d3ee", "#f472b6", "#a78bfa", "#34d399",
+        "#fb923c", "#60a5fa", "#facc15", "#f87171",
+        "#2dd4bf", "#c084fc", "#4ade80", "#fbbf24"
+    ];
+    const clientColorMap = {};
+    let clientColorIndex = 0;
+
+    function getClientColor(clientId) {
+        if (!clientId || clientId === "Unknown" || clientId === "server") {
+            return "#9bb1cc";
+        }
+        if (!clientColorMap[clientId]) {
+            clientColorMap[clientId] = clientColorPalette[clientColorIndex % clientColorPalette.length];
+            clientColorIndex++;
+        }
+        return clientColorMap[clientId];
+    }
+
+    // --- Client filter state ---
+    let selectedClientFilter = "all";
+    const clientFilterEl = document.getElementById("client-filter");
 
     elements.clearActivity?.addEventListener("click", () => {
         elements.activityLog.innerHTML = "";
@@ -119,6 +157,13 @@
         renderActivityFilters();
         applyActivityFilters();
     });
+
+    if (clientFilterEl) {
+        clientFilterEl.addEventListener("change", () => {
+            selectedClientFilter = clientFilterEl.value;
+            applyActivityFilters();
+        });
+    }
 
     elements.activityFilter?.addEventListener("click", (event) => {
         const button = event.target.closest("button[data-activity-type]");
@@ -239,7 +284,8 @@
             const sender = String(data?.sender || "Unknown");
             const content = String(data?.content || "");
             const room = String(data?.room || "Unknown");
-            log(type, sender, content, room);
+            const clientId = String(data?.client_id || "");
+            log(type, sender, content, room, clientId);
         });
     } else {
         log("err", "System", "Socket client unavailable.", "dashboard_room");
@@ -369,6 +415,7 @@
 
         renderSidebar(rooms, totalClientCount);
         renderTable(rooms);
+        updateClientFilterOptions();
     }
 
     function normalizeClient(client) {
@@ -469,8 +516,16 @@
         rows.forEach((client) => {
             const tr = document.createElement("tr");
 
+            const color = getClientColor(client.id);
             const idDisplay = client.deviceName || client.id;
-            tr.appendChild(cell(idDisplay));
+            const idTd = document.createElement("td");
+            const dot = document.createElement("span");
+            dot.className = "client-color-dot";
+            dot.style.backgroundColor = color;
+            idTd.appendChild(dot);
+            idTd.appendChild(document.createTextNode(" " + idDisplay));
+            tr.appendChild(idTd);
+
             tr.appendChild(typeCell(client.type));
             tr.appendChild(cell(client.room));
             tr.appendChild(lanStateCell(client));
@@ -594,20 +649,28 @@
 
         Array.from(elements.activityLog.children).forEach((entry) => {
             const activityType = String(entry.dataset.activityType || "info").toLowerCase();
-            const visible = enabledActivityTypes.has(activityType);
+            const entryClientId = String(entry.dataset.clientId || "");
+
+            let visible = enabledActivityTypes.has(activityType);
+            if (visible && selectedClientFilter !== "all" && entryClientId) {
+                visible = entryClientId === selectedClientFilter;
+            }
             entry.classList.toggle("is-hidden", !visible);
         });
 
         updateActivityCount();
     }
 
-    function log(type, sender, content, room) {
+    function log(type, sender, content, room, clientId) {
         const item = document.createElement("div");
         const normalizedType = normalizeActivityType(type);
         ensureActivityTypeRegistered(normalizedType);
 
         item.className = `log-item level-${normalizedType}`;
         item.dataset.activityType = normalizedType;
+        if (clientId) {
+            item.dataset.clientId = clientId;
+        }
 
         const time = document.createElement("span");
         time.className = "log-time";
@@ -619,8 +682,15 @@
 
         const senderEl = document.createElement("span");
         senderEl.className = "log-sender";
-        senderEl.style.color = stringToColor(sender);
-        senderEl.textContent = `${sender} @ ${room}`;
+        const senderColor = clientId ? getClientColor(clientId) : stringToColor(sender);
+        senderEl.style.color = senderColor;
+        if (clientId) {
+            const dot = document.createElement("span");
+            dot.className = "log-client-dot";
+            dot.style.backgroundColor = senderColor;
+            senderEl.appendChild(dot);
+        }
+        senderEl.appendChild(document.createTextNode(`${sender} @ ${room && room !== "Unknown" ? room : "\u2014"}`));
 
         const contentEl = document.createElement("span");
         contentEl.className = "log-content";
@@ -633,7 +703,7 @@
 
         elements.activityLog.prepend(item);
 
-        if (elements.activityLog.children.length > 80) {
+        if (elements.activityLog.children.length > 200) {
             elements.activityLog.removeChild(elements.activityLog.lastChild);
         }
 
@@ -669,6 +739,33 @@
             .replace(/>/g, "&gt;")
             .replace(/\"/g, "&quot;")
             .replace(/'/g, "&#039;");
+    }
+
+    function updateClientFilterOptions() {
+        if (!clientFilterEl) {
+            return;
+        }
+        const previousValue = clientFilterEl.value;
+        const options = ['<option value="all">All Clients</option>'];
+
+        const sortedIds = Object.keys(currentClients).sort();
+        sortedIds.forEach((clientId) => {
+            const client = currentClients[clientId];
+            const deviceName = String(client?.device_name || client?.deviceName || "").trim() || clientId;
+            const color = getClientColor(clientId);
+            const label = `\u25CF ${deviceName}`;
+            const selected = clientId === previousValue ? " selected" : "";
+            options.push(`<option value="${escapeHtml(clientId)}" style="color:${color}"${selected}>${escapeHtml(label)}</option>`);
+        });
+
+        clientFilterEl.innerHTML = options.join("");
+        // Restore selection if still valid
+        if (previousValue && sortedIds.includes(previousValue)) {
+            clientFilterEl.value = previousValue;
+        } else {
+            clientFilterEl.value = "all";
+            selectedClientFilter = "all";
+        }
     }
 });
 

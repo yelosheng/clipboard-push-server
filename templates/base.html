@@ -1,40 +1,43 @@
 ﻿<!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Clipboard Man Dashboard{% endblock %}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap"
+        rel="stylesheet">
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
     <link rel="shortcut icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260302a') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260303a') }}">
     {% block head %}{% endblock %}
 </head>
+
 <body class="{% block body_class %}{% endblock %}">
     <div class="bg-grid" aria-hidden="true"></div>
     <div class="bg-glow" aria-hidden="true"></div>
 
     <div class="app-shell">
         {% with messages = get_flashed_messages() %}
-            {% if messages %}
-                <ul class="flash-list" role="alert" aria-live="assertive">
-                {% for message in messages %}
-                    <li>{{ message }}</li>
-                {% endfor %}
-                </ul>
-            {% endif %}
+        {% if messages %}
+        <ul class="flash-list" role="alert" aria-live="assertive">
+            {% for message in messages %}
+            <li>{{ message }}</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
         {% endwith %}
 
         {% block content %}{% endblock %}
     </div>
 
-    <script src="{{ url_for('static', filename='js/app.js', v='20260228c') }}"></script>
+    <script src="{{ url_for('static', filename='js/app.js', v='20260303a') }}"></script>
     {% block modals %}{% endblock %}
     {% block scripts %}{% endblock %}
 </body>
+
 </html>
-
-

@@ -24,11 +24,12 @@ from .services.local_storage_service import (
     clear_storage as _local_clear_storage,
     ensure_storage_dir,
     get_local_storage_usage as _get_local_storage_usage,
+    get_file_path as local_get_file_path,
     make_file_key,
     purge_old_files,
-    read_file as local_read_file,
-    write_file as local_write_file,
+    write_file_stream as local_write_file_stream,
 )
+from .services.pipeline_relay import PipelineRegistry
 
 from .settings import (
     ADMIN_PASSWORD,
@@ -125,6 +126,9 @@ socketio = SocketIO(app, cors_allowed_origins='*',
                     logger=_enable_engine_log, engineio_logger=_enable_engine_log)
 bind_runtime(socketio, logger)
 
+_pipeline_max_buffer_mb = int(os.environ.get('PIPELINE_RELAY_MAX_BUFFER_MB', '16') or 16)
+pipeline_registry = PipelineRegistry(max_buffer_bytes=_pipeline_max_buffer_mb * 1024 * 1024)
+
 # Eagerly initialise FCM so startup errors surface immediately (non-fatal)
 from .services.fcm_service import _ensure_initialized as _fcm_init
 _fcm_init()
@@ -194,8 +198,9 @@ register_routes(
     STORAGE_BACKEND=STORAGE_BACKEND,
     LOCAL_STORAGE_PATH=LOCAL_STORAGE_PATH,
     LOCAL_STORAGE_BASE_URL=LOCAL_STORAGE_BASE_URL,
-    local_write_file=local_write_file,
-    local_read_file=local_read_file,
+    local_write_file_stream=local_write_file_stream,
+    local_get_file_path=local_get_file_path,
+    pipeline_registry=pipeline_registry,
     local_storage_get_usage=local_storage_get_usage_bound,
     local_storage_clear=local_storage_clear_bound,
     DOTENV_PATH=SETTINGS_OVERRIDE_PATH,

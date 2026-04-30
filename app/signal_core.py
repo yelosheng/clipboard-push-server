@@ -36,7 +36,7 @@ PROTOCOL_VERSION = '4.0'
 DEFAULT_PROBE_TIMEOUT_MS = 1200
 SIGNAL_DEBUG_ENABLED = os.environ.get('SIGNAL_DEBUG_ENABLED', '0').strip().lower() in {'1', 'true', 'yes', 'on'}
 SIGNAL_DEBUG_MAX_CHARS = int(os.environ.get('SIGNAL_DEBUG_MAX_CHARS', '800') or 800)
-TRANSFER_DECISION_TIMEOUT_MS_DEFAULT = int(os.environ.get('TRANSFER_DECISION_TIMEOUT_MS_DEFAULT', '10000') or 10000)
+TRANSFER_DECISION_TIMEOUT_MS_DEFAULT = int(os.environ.get('TRANSFER_DECISION_TIMEOUT_MS_DEFAULT', '3000') or 3000)
 TRANSFER_DECISION_TIMEOUT_MS_MAX = int(os.environ.get('TRANSFER_DECISION_TIMEOUT_MS_MAX', '30000') or 30000)
 
 TRANSFER_CONTEXTS = {}
@@ -57,7 +57,12 @@ ALLOWED_ACTIVITY_TYPES = {
     'lan_probe_result',
     'peer_network_update',
     'transfer_command',
-    'transfer_state'
+    'transfer_state',
+    'connect',
+    'disconnect',
+    'join',
+    'leave',
+    'heartbeat',
 }
 
 
@@ -96,14 +101,17 @@ def is_valid_private_probe_url(probe_url, expected_private_ip=None):
         return False
 
 
-def emit_activity_log(activity_type, room, sender, content):
+def emit_activity_log(activity_type, room, sender, content, client_id=None):
     normalized_type = activity_type if activity_type in ALLOWED_ACTIVITY_TYPES else 'api_relay'
-    socketio.emit('activity_log', {
+    payload = {
         'type': normalized_type,
         'room': room or 'Unknown',
         'sender': sender or 'Unknown',
         'content': content or ''
-    }, room='dashboard_room')
+    }
+    if client_id:
+        payload['client_id'] = client_id
+    socketio.emit('activity_log', payload, room='dashboard_room')
 
 
 def to_debug_json(payload):

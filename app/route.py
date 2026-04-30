@@ -1,9 +1,11 @@
 import time as pytime
 
 from dotenv import set_key
-from flask import request, jsonify, render_template, redirect, url_for, flash, send_from_directory, Response
+from flask import request, jsonify, render_template, redirect, url_for, flash, send_from_directory, send_file, Response
 from flask_login import current_user, login_user, login_required, logout_user
 from werkzeug.security import generate_password_hash
+
+from .services.pipeline_relay import PipelineDroppedToDisk
 
 
 def register_routes(
@@ -29,10 +31,11 @@ def register_routes(
     STORAGE_BACKEND,
     LOCAL_STORAGE_PATH,
     LOCAL_STORAGE_BASE_URL,
-    local_write_file,
-    local_read_file,
+    local_write_file_stream,
+    local_get_file_path,
     local_storage_get_usage,
     local_storage_clear,
+    pipeline_registry,
     DOTENV_PATH,
     HISTORY_DB_PATH=None,
     history_query_summary=None,
@@ -219,9 +222,13 @@ def register_routes(
         if STORAGE_BACKEND != 'local':
             return jsonify({'error': 'Local storage not enabled'}), 404
         content_type = request.content_type or 'application/octet-stream'
+        pipeline_buf = pipeline_registry.open_for_write(file_key, content_type)
         try:
-            local_write_file(LOCAL_STORAGE_PATH, file_key, request.get_data(), content_type)
-            logger.info(f"Local upload: {file_key} ({len(request.data)} bytes)")
+            bytes_written = local_write_file_stream(
+                LOCAL_STORAGE_PATH, file_key, request.stream, content_type,
+                pipeline_buffer=pipeline_buf,
+            )
+            logger.info(f"Local upload: {file_key} ({bytes_written} bytes, streamed)")
             return '', 200
         except Exception as e:
             logger.error(f"Local upload failed: {e}")
@@ -231,10 +238,38 @@ def register_routes(
     def local_file_download(file_key):
         if STORAGE_BACKEND != 'local':
             return jsonify({'error': 'Local storage not enabled'}), 404
-        data, content_type = local_read_file(LOCAL_STORAGE_PATH, file_key)
-        if data is None:
+
+        if not request.headers.get('Range'):
+            buf = pipeline_registry.get(file_key)
+            if buf is None:
+                buf = pipeline_registry.wait_for(file_key, timeout_s=5.0)
+            if buf is not None and buf.attach_reader():
+                content_type = buf.content_type
+                def _stream():
+                    try:
+                        for chunk in buf.read_iter():
+                            yield chunk
+                    except (PipelineDroppedToDisk, TimeoutError, IOError) as e:
+                        logger.warning(f"Pipeline relay {file_key} aborted: {e}")
+                    finally:
+                        buf.detach_reader()
+                logger.info(f"Pipeline relay download: {file_key}")
+                return Response(_stream(), content_type=content_type)
+            if buf is not None and not buf.finished and not buf.failed:
+                # Buffer exists but couldn't attach (dropped to disk); wait for PUT
+                # to complete so the on-disk file is ready for send_file.
+                buf.terminal_event.wait(timeout=120)
+
+        file_path, content_type = local_get_file_path(LOCAL_STORAGE_PATH, file_key)
+        if file_path is None:
             return jsonify({'error': 'File not found'}), 404
-        return Response(data, content_type=content_type)
+        return send_file(
+            file_path,
+            mimetype=content_type,
+            as_attachment=False,
+            conditional=True,
+            max_age=0,
+        )
 
     # Keys exposed in the settings UI (excludes FLASK_SECRET_KEY, ADMIN_PASSWORD)
     _SETTINGS_KEYS = [

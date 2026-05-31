@@ -48,16 +48,31 @@ def _ensure_initialized():
         return _fcm_available
 
 
-def send_fcm_data(token: str, data: dict) -> bool:
+# Substrings that indicate the device token is permanently invalid and
+# should be removed from the registry (no point retrying it).
+_INVALID_TOKEN_MARKERS = (
+    'UNREGISTERED',
+    'SenderIdMismatch',
+    'registration-token-not-registered',
+    'Requested entity was not found',
+)
+
+
+def _import_messaging():
+    from firebase_admin import messaging
+    return messaging
+
+
+def send_fcm_data(token: str, data: dict) -> str:
     """Send an FCM data message to a single device token.
 
     All values in *data* are coerced to strings as required by FCM.
-    Returns True on success, False on any failure.
+    Returns one of: 'ok' | 'invalid_token' | 'error' | 'disabled'.
     """
     if not _ensure_initialized():
-        return False
+        return 'disabled'
     try:
-        from firebase_admin import messaging
+        messaging = _import_messaging()
         str_data = {k: str(v) for k, v in data.items() if v is not None}
         message = messaging.Message(
             data=str_data,
@@ -65,10 +80,14 @@ def send_fcm_data(token: str, data: dict) -> bool:
             android=messaging.AndroidConfig(priority='high'),
         )
         messaging.send(message)
-        return True
+        return 'ok'
     except Exception as e:
+        text = str(e)
+        if any(m in text for m in _INVALID_TOKEN_MARKERS):
+            logger.info(f'FCM token invalid (…{token[-6:]}): will be removed')
+            return 'invalid_token'
         logger.warning(f'FCM send failed (token=…{token[-6:]}): {e}')
-        return False
+        return 'error'
 
 
 def send_fcm_to_tokens(tokens: list, data: dict) -> int:
@@ -80,7 +99,7 @@ def send_fcm_to_tokens(tokens: list, data: dict) -> int:
         return 0
     success = 0
     for token in tokens:
-        if send_fcm_data(token, data):
+        if send_fcm_data(token, data) == 'ok':
             success += 1
     logger.debug(f'FCM sent {success}/{len(tokens)} OK')
     return success

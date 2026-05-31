@@ -44,6 +44,7 @@ def register_socket_events(
     instruct_finish,
     record_join=None,
     record_disconnect=None,
+    fcm_db_path=None,
 ):
     @socketio.on('connect')
     def on_connect():

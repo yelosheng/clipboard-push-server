@@ -100,6 +100,7 @@ from .services.history_db import (
     query_countries as history_query_countries_fn,
 )
 from .services.geo_service import get_client_ip, lookup_ip as geo_lookup_ip
+from .services import fcm_registry
 from .socket_events import register_socket_events
 
 
@@ -109,6 +110,11 @@ logger = logging.getLogger(__name__)
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 HISTORY_DB_PATH = os.path.join(BASE_DIR, 'data', 'history.db')
 history_init_db(HISTORY_DB_PATH)
+
+# FCM token registry (persistent; survives disconnects). Separate from
+# signal_core's connection-scoped state — see fcm_registry docstring.
+FCM_DB_PATH = os.path.join(BASE_DIR, 'data', 'fcm_tokens.db')
+fcm_registry.init_db(FCM_DB_PATH)
 
 _ACTIVE_SID_EVENTS: dict = {}
 _ACTIVE_SID_LOCK = threading.Lock()
@@ -291,6 +297,7 @@ register_socket_events(
     instruct_finish=instruct_finish,
     record_join=_record_join,
     record_disconnect=_record_disconnect,
+    fcm_db_path=FCM_DB_PATH,
 )
 
 

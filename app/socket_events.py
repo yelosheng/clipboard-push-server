@@ -1,5 +1,58 @@
-﻿from flask import request
+﻿import time
+from uuid import uuid4
+
+from flask import request
 from flask_socketio import emit, join_room, leave_room
+
+from app.services import fcm_registry
+from app.services.fcm_service import send_fcm_data
+
+
+def build_clipboard_fcm_payload(data: dict) -> dict:
+    """Build the FCM data payload for a clipboard message.
+
+    Assigns a stable message id + timestamp if absent and writes them back
+    into *data* so the Socket.IO broadcast and the FCM message share the
+    same id (the client dedups by id). The content is forwarded verbatim
+    (already E2E-encrypted ciphertext when encrypted=true); the server never
+    decrypts.
+    """
+    mid = str(data.get('id') or '').strip()
+    if not mid:
+        mid = f"{int(time.time() * 1000)}_{uuid4().hex[:6]}"
+        data['id'] = mid
+    ts = str(data.get('timestamp') or '').strip()
+    if not ts:
+        ts = str(int(time.time() * 1000))
+        data['timestamp'] = ts
+    return {
+        'type': 'clipboard_push',
+        'content': str(data.get('content', '')),
+        'encrypted': 'true' if data.get('encrypted') else 'false',
+        'id': mid,
+        'timestamp': ts,
+    }
+
+
+def fanout_clipboard_fcm(fcm_db_path, room, sender_client_id, data, send_fn=send_fcm_data):
+    """Send the clipboard content via FCM to every registered peer in the
+    room except the sender. Prunes tokens reported permanently invalid."""
+    if not fcm_db_path or not room:
+        return
+    payload = build_clipboard_fcm_payload(data)
+    for token in fcm_registry.get_room_tokens(fcm_db_path, room, exclude_client_id=sender_client_id):
+        if send_fn(token, payload) == 'invalid_token':
+            fcm_registry.remove_token(fcm_db_path, token)
+
+
+def fanout_wake_fcm(fcm_db_path, room, sender_client_id, send_fn=send_fcm_data):
+    """Send a content-less wake push to every registered peer except the
+    sender (used for file events so a frozen app reconnects)."""
+    if not fcm_db_path or not room:
+        return
+    for token in fcm_registry.get_room_tokens(fcm_db_path, room, exclude_client_id=sender_client_id):
+        if send_fn(token, {'type': 'wake'}) == 'invalid_token':
+            fcm_registry.remove_token(fcm_db_path, token)
 
 
 def register_socket_events(
@@ -150,6 +203,10 @@ def register_socket_events(
             broadcast_room_stats(room)
             emit_room_state_changed(room, reason='peer_joined')
             trigger_lan_probe_if_ready(room, reason='peer_joined')
+
+            fcm_token = payload.get('fcm_token')
+            if fcm_token:
+                fcm_registry.register_token(fcm_db_path, room, client_id, fcm_token, client_type)
         else:
             logger.warning(f"Client {client_id} joined without room info in payload")
 
@@ -251,14 +308,29 @@ def register_socket_events(
                 if ctx.get('room') == room and ctx.get('status') in {'created', 'offered', 'waiting_result'}:
                     instruct_upload_relay(ctx, 'probe_diff_lan')
 
+    @socketio.on('register_fcm_token')
+    def handle_register_fcm_token(data):
+        payload = data if isinstance(data, dict) else {}
+        sender = get_client_from_sid(request.sid)
+        room = payload.get('room') or CLIENT_ROOMS.get(sender)
+        client_id = payload.get('client_id') or sender
+        token = payload.get('fcm_token')
+        client_type = normalize_client_type(payload.get('client_type')) or CLIENT_TYPES.get(client_id)
+        if room and client_id and client_id != 'Unknown' and token:
+            fcm_registry.register_token(fcm_db_path, room, client_id, token, client_type)
+
     @socketio.on('clipboard_push')
     def handle_clipboard_push(data):
         room = data.get('room')
         if room:
+            sender = get_client_from_sid(request.sid)
+            # Assign a shared message id/timestamp (written back into data) so
+            # the socket broadcast and the FCM message dedup as one on the client.
+            build_clipboard_fcm_payload(data)
             emit('clipboard_sync', data, room=room, include_self=False)
             logger.info(f"Relayed clipboard data to room: {room}")
+            fanout_clipboard_fcm(fcm_db_path, room, sender, data)
 
-            sender = get_client_from_sid(request.sid)
             content_preview = data.get('content', '')[:30] + '...' if data.get('content') else 'Encrypted Data'
             socketio.emit('activity_log', {
                 'type': 'clipboard',

@@ -410,6 +410,9 @@ def register_socket_events(
 
         context = get_or_create_transfer_context(room, sender, payload)
 
+        # Wake a frozen/killed peer via FCM so it reconnects and can receive the file.
+        fanout_wake_fcm(fcm_db_path, room, sender)
+
         room_state = get_room_lan_state(room)
         if room_state == 'PAIR_DIFF_LAN':
             # W1: forward a sanitized file_available (LAN URL stripped) to the
@@ -485,6 +488,7 @@ def register_socket_events(
             emit('file_need_relay', payload, room=room, include_self=False)
             logger.info(f"Relayed file_need_relay to room: {room}")
             debug_signal_log('tx', payload, room=room, event='file_need_relay', sender=sender)
+            fanout_wake_fcm(fcm_db_path, room, sender)
 
             transfer_id = str(payload.get('transfer_id') or '').strip()
             context = TRANSFER_CONTEXTS.get(transfer_id)

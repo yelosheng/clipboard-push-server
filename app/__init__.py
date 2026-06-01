@@ -216,6 +216,7 @@ register_routes(
     history_query_hourly=history_query_hourly_fn,
     history_query_daily=history_query_daily_fn,
     history_query_countries=history_query_countries_fn,
+    fcm_db_path=FCM_DB_PATH,
 )
 
 def _record_join(*, client_id, device_name, client_type, room_id):

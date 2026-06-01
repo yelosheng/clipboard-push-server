@@ -60,3 +60,28 @@ def test_fanout_noop_when_no_db():
     # Should not raise when FCM is disabled (fcm_db_path None)
     se.fanout_clipboard_fcm(None, room='r1', sender_client_id='A', data={'content': 'x'})
     se.fanout_wake_fcm(None, room='r1', sender_client_id='A')
+
+
+def test_relay_fanout_only_for_clipboard_sync():
+    db = _db()
+    fcm_registry.register_token(db, 'r1', 'A', 'tokA', 'app')
+    fcm_registry.register_token(db, 'r1', 'B', 'tokB', 'pc')
+    sent = []
+
+    def fake_send(token, payload):
+        sent.append((token, payload.get('type')))
+        return 'ok'
+
+    data = {'room': 'r1', 'content': 'C', 'encrypted': True}
+    # non-clipboard events relayed over HTTP must NOT push text via FCM
+    se.fanout_relay_fcm(db, 'file_sync', 'r1', 'A', data, send_fn=fake_send)
+    assert sent == []
+    # clipboard_sync over HTTP fans out the text to the other peer only
+    se.fanout_relay_fcm(db, 'clipboard_sync', 'r1', 'A', data, send_fn=fake_send)
+    assert sent == [('tokB', 'clipboard_push')]
+
+
+def test_relay_fanout_noop_when_no_db_or_bad_data():
+    # Disabled FCM or non-dict data must not raise
+    se.fanout_relay_fcm(None, 'clipboard_sync', 'r1', 'A', {'content': 'x'})
+    se.fanout_relay_fcm('ignored', 'clipboard_sync', 'r1', 'A', 'not-a-dict')

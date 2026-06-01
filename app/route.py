@@ -43,6 +43,7 @@ def register_routes(
     history_query_hourly=None,
     history_query_daily=None,
     history_query_countries=None,
+    fcm_db_path=None,
 ):
     @app.route('/login', methods=['GET', 'POST'])
     def login():
@@ -357,6 +358,13 @@ def register_routes(
             if not room or not event or data is None:
                 return jsonify({'error': 'Missing room, event, or data'}), 400
 
+            # Assign a shared message id/timestamp (written back into data) so
+            # the socket broadcast and the FCM message dedup as one on the
+            # client. Must happen before the broadcast below.
+            if event == 'clipboard_sync' and isinstance(data, dict):
+                from .socket_events import build_clipboard_fcm_payload
+                build_clipboard_fcm_payload(data)
+
             skip_sids = []
             if sender_id and sender_id in CLIENT_SESSIONS:
                 skip_sids = list(CLIENT_SESSIONS[sender_id])
@@ -366,6 +374,11 @@ def register_routes(
                 socketio.emit(event, data, room=room, skip_sid=skip_sids)
             else:
                 socketio.emit(event, data, room=room)
+
+            # Fan out over FCM so a frozen/backgrounded peer still receives the
+            # text even though this sender relayed over HTTP (Win32, quick-push).
+            from .socket_events import fanout_relay_fcm
+            fanout_relay_fcm(fcm_db_path, event, room, sender_id, data)
 
             debug_signal_log('http_tx', data, room=room, event=event, sender=sender_id or 'API', sid='http')
             logger.info(f"Relayed HTTP message to room {room}: event={event}, skipped={len(skip_sids)}")

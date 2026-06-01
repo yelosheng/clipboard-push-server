@@ -55,6 +55,21 @@ def fanout_wake_fcm(fcm_db_path, room, sender_client_id, send_fn=send_fcm_data):
             fcm_registry.remove_token(fcm_db_path, token)
 
 
+def fanout_relay_fcm(fcm_db_path, event, room, sender_client_id, data, send_fn=send_fcm_data):
+    """FCM fan-out for messages arriving via the HTTP /api/relay path.
+
+    Mirrors the socket handlers so senders that relay over HTTP (the Win32
+    client, Android quick-push / share-sheet) still wake a frozen peer:
+    text (clipboard_sync) is pushed verbatim. The shared id must already be
+    injected into *data* (via build_clipboard_fcm_payload) before the broadcast
+    so the socket broadcast and the FCM message dedup as one on the client.
+    """
+    if not fcm_db_path or not room or not isinstance(data, dict):
+        return
+    if event == 'clipboard_sync':
+        fanout_clipboard_fcm(fcm_db_path, room, sender_client_id, data, send_fn=send_fn)
+
+
 def register_socket_events(
     socketio,
     *,

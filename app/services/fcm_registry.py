@@ -73,6 +73,19 @@ def get_room_tokens(db_path: str, room: str, exclude_client_id: str = None):
     return [r['token'] for r in rows if r['client_id'] != exclude_client_id]
 
 
+def get_room_client_ids(db_path: str, room: str):
+    """Return the client_ids that have a persistent token registered for the
+    room (regardless of current socket connectivity). Used to surface
+    FCM-reachable but offline peers so HTTP senders don't gate on live peers."""
+    if not (db_path and room):
+        return []
+    with _lock, _conn(db_path) as con:
+        rows = con.execute(
+            "SELECT client_id FROM fcm_tokens WHERE room = ?", (room,)
+        ).fetchall()
+    return [r['client_id'] for r in rows]
+
+
 def remove_token(db_path: str, token: str):
     if not (db_path and token):
         return

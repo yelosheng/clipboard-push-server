@@ -422,11 +422,58 @@ def transfer_decision_timeout_worker(transfer_id):
         instruct_upload_relay(context, 'decision_timeout')
 
 
+# Optional hook (wired in app factory) that returns the client_ids reachable
+# via a persistent FCM token for a room. Kept as an injected callable so this
+# module stays decoupled from the FCM token registry (different lifecycle).
+_fcm_offline_peers_provider = None
+
+
+def set_fcm_offline_peers_provider(fn):
+    global _fcm_offline_peers_provider
+    _fcm_offline_peers_provider = fn
+
+
+def _augment_with_fcm_offline_peers(room, payload):
+    """Return a copy of *payload* whose peers list also includes devices that
+    have a persistent FCM token but no live socket, so HTTP senders (e.g. the
+    Win32 client) don't refuse to send with 'no target devices' — the server
+    can still deliver to them via FCM. Only the in-memory `state`/`max_peers`
+    fields stay based on real socket peers; the dashboard payload is untouched.
+    """
+    provider = _fcm_offline_peers_provider
+    if not provider:
+        return payload
+    try:
+        fcm_client_ids = provider(room) or []
+    except Exception:
+        return payload
+    present = {p.get('client_id') for p in payload.get('peers', [])}
+    extra = []
+    for cid in fcm_client_ids:
+        if cid and cid not in present:
+            extra.append({
+                'client_id': cid,
+                'client_type': CLIENT_TYPES.get(cid, 'unknown'),
+                'device_name': CLIENT_DEVICE_NAMES.get(cid) or cid,
+                'joined_at_ms': 0,
+                'last_seen_ms': CLIENT_LAST_SEEN_MS.get(cid, 0),
+                'network_epoch': 0,
+                'offline': True,
+                'via_fcm': True,
+            })
+    if not extra:
+        return payload
+    augmented = dict(payload)
+    augmented['peers'] = list(payload.get('peers', [])) + extra
+    return augmented
+
+
 def emit_room_state_changed(room, reason='state_updated'):
     if not room:
         return
     payload = build_room_state_payload(room)
-    socketio.emit('room_state_changed', payload, room=room)
+    room_payload = _augment_with_fcm_offline_peers(room, payload)
+    socketio.emit('room_state_changed', room_payload, room=room)
     socketio.emit('room_state_changed', payload, room='dashboard_room')
     emit_activity_log('room_state_changed', room, 'server', f"{payload.get('state', 'UNKNOWN')} ({reason})")
 

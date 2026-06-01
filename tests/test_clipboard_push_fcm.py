@@ -85,3 +85,38 @@ def test_relay_fanout_noop_when_no_db_or_bad_data():
     # Disabled FCM or non-dict data must not raise
     se.fanout_relay_fcm(None, 'clipboard_sync', 'r1', 'A', {'content': 'x'})
     se.fanout_relay_fcm('ignored', 'clipboard_sync', 'r1', 'A', 'not-a-dict')
+
+
+def test_get_room_client_ids():
+    db = _db()
+    fcm_registry.register_token(db, 'r1', 'A', 'tokA', 'app')
+    fcm_registry.register_token(db, 'r1', 'B', 'tokB', 'pc')
+    fcm_registry.register_token(db, 'r2', 'C', 'tokC', 'app')
+    assert sorted(fcm_registry.get_room_client_ids(db, 'r1')) == ['A', 'B']
+    assert fcm_registry.get_room_client_ids(db, 'r2') == ['C']
+    assert fcm_registry.get_room_client_ids(db, 'rX') == []
+
+
+def test_room_state_augments_offline_fcm_peers():
+    from app import signal_core as sc
+    payload = {'peers': [{'client_id': 'pc1'}], 'state': 'SINGLE'}
+    try:
+        # an FCM-registered device with no live socket shows up as an offline peer
+        sc.set_fcm_offline_peers_provider(lambda room: ['phone1'] if room == 'r1' else [])
+        out = sc._augment_with_fcm_offline_peers('r1', payload)
+        assert [p['client_id'] for p in out['peers']] == ['pc1', 'phone1']
+        phantom = out['peers'][1]
+        assert phantom['offline'] is True and phantom['via_fcm'] is True
+        assert out['state'] == 'SINGLE'          # real state untouched
+        assert len(payload['peers']) == 1        # original payload not mutated
+
+        # a client already present as a live peer is not duplicated
+        sc.set_fcm_offline_peers_provider(lambda room: ['pc1'])
+        out2 = sc._augment_with_fcm_offline_peers('r1', payload)
+        assert [p['client_id'] for p in out2['peers']] == ['pc1']
+
+        # no provider -> payload returned unchanged
+        sc.set_fcm_offline_peers_provider(None)
+        assert sc._augment_with_fcm_offline_peers('r1', payload) is payload
+    finally:
+        sc.set_fcm_offline_peers_provider(None)

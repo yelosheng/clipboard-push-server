@@ -67,6 +67,7 @@ from .signal_core import (
     detach_sid_from_tracking,
     emit_activity_log,
     emit_room_state_changed,
+    set_fcm_offline_peers_provider,
     enforce_room_capacity,
     ensure_protocol_version,
     get_all_room_states,
@@ -115,6 +116,10 @@ history_init_db(HISTORY_DB_PATH)
 # signal_core's connection-scoped state — see fcm_registry docstring.
 FCM_DB_PATH = os.path.join(BASE_DIR, 'data', 'fcm_tokens.db')
 fcm_registry.init_db(FCM_DB_PATH)
+
+# Surface FCM-reachable but offline peers in room_state_changed broadcasts so
+# HTTP senders (Win32) don't gate on live socket peers when the target is frozen.
+set_fcm_offline_peers_provider(lambda room: fcm_registry.get_room_client_ids(FCM_DB_PATH, room))
 
 _ACTIVE_SID_EVENTS: dict = {}
 _ACTIVE_SID_LOCK = threading.Lock()

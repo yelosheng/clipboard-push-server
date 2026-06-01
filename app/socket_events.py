@@ -1,4 +1,5 @@
-﻿import time
+﻿import logging
+import time
 from uuid import uuid4
 
 from flask import request
@@ -6,6 +7,8 @@ from flask_socketio import emit, join_room, leave_room
 
 from app.services import fcm_registry
 from app.services.fcm_service import send_fcm_data
+
+_logger = logging.getLogger('app')
 
 
 def build_clipboard_fcm_payload(data: dict) -> dict:
@@ -40,8 +43,14 @@ def fanout_clipboard_fcm(fcm_db_path, room, sender_client_id, data, send_fn=send
     if not fcm_db_path or not room:
         return
     payload = build_clipboard_fcm_payload(data)
-    for token in fcm_registry.get_room_tokens(fcm_db_path, room, exclude_client_id=sender_client_id):
-        if send_fn(token, payload) == 'invalid_token':
+    tokens = fcm_registry.get_room_tokens(fcm_db_path, room, exclude_client_id=sender_client_id)
+    if not tokens:
+        _logger.info("FCM clipboard fanout: no registered peer tokens for room %s (sender=%s)", room, sender_client_id)
+        return
+    for token in tokens:
+        result = send_fn(token, payload)
+        _logger.info("FCM clipboard sent: room=%s result=%s", room, result)
+        if result == 'invalid_token':
             fcm_registry.remove_token(fcm_db_path, token)
 
 
@@ -50,8 +59,14 @@ def fanout_wake_fcm(fcm_db_path, room, sender_client_id, send_fn=send_fcm_data):
     sender (used for file events so a frozen app reconnects)."""
     if not fcm_db_path or not room:
         return
-    for token in fcm_registry.get_room_tokens(fcm_db_path, room, exclude_client_id=sender_client_id):
-        if send_fn(token, {'type': 'wake'}) == 'invalid_token':
+    tokens = fcm_registry.get_room_tokens(fcm_db_path, room, exclude_client_id=sender_client_id)
+    if not tokens:
+        _logger.info("FCM wake fanout: no registered peer tokens for room %s (sender=%s)", room, sender_client_id)
+        return
+    for token in tokens:
+        result = send_fn(token, {'type': 'wake'})
+        _logger.info("FCM wake sent: room=%s result=%s", room, result)
+        if result == 'invalid_token':
             fcm_registry.remove_token(fcm_db_path, token)
 
 

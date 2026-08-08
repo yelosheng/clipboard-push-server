@@ -162,7 +162,23 @@ def register_socket_events(
         sender = get_client_from_sid(request.sid)
         device_name = CLIENT_DEVICE_NAMES.get(sender, sender) if sender != 'Unknown' else request.sid
         room = CLIENT_ROOMS.get(sender) if sender != 'Unknown' else None
-        emit_activity_log('heartbeat', room, device_name, 'ping → pong', client_id=sender if sender != 'Unknown' else None)
+        client_id = sender if sender != 'Unknown' else None
+
+        if not room:
+            # 这个 socket 还活着，但服务器已经不认为它属于任何房间——重连后 join 未生效，
+            # 或它被 purge 过。此时若照常回 pong，客户端的存活检测会被骗过：它会一直
+            # 以为连接健康，而实际上收不到任何消息，也就永远不会触发重连。
+            # 不回 pong，让客户端心跳超时把这条连接判死并重连（客户端 8s 无 pong 即重连）。
+            emit_activity_log('heartbeat', None, device_name,
+                              'ping → no pong (client not in any room)',
+                              client_id=client_id)
+            logger.warning(
+                f"client_ping from {device_name} (sid={request.sid}) not in any room; "
+                f"withholding server_pong to force client reconnect"
+            )
+            return
+
+        emit_activity_log('heartbeat', room, device_name, 'ping → pong', client_id=client_id)
         emit('server_pong')
 
     @socketio.on('join')

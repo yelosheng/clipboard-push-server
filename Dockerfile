@@ -15,4 +15,7 @@ USER appuser
 EXPOSE 5055
 
 CMD ["gunicorn", "--worker-class", "geventwebsocket.gunicorn.workers.GeventWebSocketWorker", \
-     "--workers", "1", "--bind", "0.0.0.0:5055", "wsgi:app"]
+     "--workers", "1", \
+     "--timeout", "300", \
+     "--worker-connections", "2000", \
+     "--bind", "0.0.0.0:5055", "wsgi:app"]

@@ -51,9 +51,28 @@ def _conn(db_path: str):
 
 
 def register_token(db_path: str, room: str, client_id: str, token: str, client_type: str = None):
+    """Register (room, client_id) -> token.
+
+    Pairing is strictly 1:1 by product design: a room may hold at most one
+    registered client_id per client_type (one phone, one PC — multi-device
+    sharing of a room is disallowed). Registering a new client_id evicts any
+    other client_id of the same client_type previously registered for this
+    room, so a stale registration left behind by a reinstall (client_id
+    changes whenever the signing key changes) is displaced immediately
+    instead of lingering — and receiving duplicate pushes — until Firebase
+    eventually reports its token invalid.
+
+    When client_type is falsy, eviction is skipped: an ambiguous type isn't
+    grounds to blow away someone else's registration.
+    """
     if not (db_path and room and client_id and token):
         return
     with _lock, _conn(db_path) as con:
+        if client_type:
+            con.execute(
+                "DELETE FROM fcm_tokens WHERE room = ? AND client_type = ? AND client_id != ?",
+                (room, client_type, client_id),
+            )
         con.execute(
             "INSERT INTO fcm_tokens (room, client_id, token, client_type, updated_at) "
             "VALUES (?, ?, ?, ?, ?) "

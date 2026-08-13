@@ -36,7 +36,11 @@ PROTOCOL_VERSION = '4.0'
 DEFAULT_PROBE_TIMEOUT_MS = 1200
 SIGNAL_DEBUG_ENABLED = os.environ.get('SIGNAL_DEBUG_ENABLED', '0').strip().lower() in {'1', 'true', 'yes', 'on'}
 SIGNAL_DEBUG_MAX_CHARS = int(os.environ.get('SIGNAL_DEBUG_MAX_CHARS', '800') or 800)
-TRANSFER_DECISION_TIMEOUT_MS_DEFAULT = int(os.environ.get('TRANSFER_DECISION_TIMEOUT_MS_DEFAULT', '3000') or 3000)
+# 15s，不是 3s：接收端可能正被 FCM 从冻结/未运行状态唤醒，而那条路要走完
+# 「FCM 送达 -> 拉起前台服务 -> 建立 socket -> 加入房间 -> 回应本次 offer」整条链，
+# 3 秒必然超时（实测日志：lan_offer_sent 08:26:57 -> decision_timeout 08:27:00），
+# 于是文件传输在手机后台时 100% 落空。上限仍受 TRANSFER_DECISION_TIMEOUT_MS_MAX 约束。
+TRANSFER_DECISION_TIMEOUT_MS_DEFAULT = int(os.environ.get('TRANSFER_DECISION_TIMEOUT_MS_DEFAULT', '15000') or 15000)
 TRANSFER_DECISION_TIMEOUT_MS_MAX = int(os.environ.get('TRANSFER_DECISION_TIMEOUT_MS_MAX', '30000') or 30000)
 
 TRANSFER_CONTEXTS = {}

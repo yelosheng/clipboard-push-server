@@ -24,7 +24,7 @@ Dashboard UI details (login/dashboard frontend) are not covered here.
   - `PROTOCOL_VERSION = "4.0"`
   - `ROOM_MAX_PEERS = 2`
   - `DEFAULT_PROBE_TIMEOUT_MS = 1200`
-  - `TRANSFER_DECISION_TIMEOUT_MS_DEFAULT = 10000`
+  - `TRANSFER_DECISION_TIMEOUT_MS_DEFAULT = 15000`
   - `TRANSFER_DECISION_TIMEOUT_MS_MAX = 30000`
 
 ## 3. Session and Identity Model

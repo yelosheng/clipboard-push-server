@@ -129,8 +129,11 @@ def register_routes(
             except Exception as e:
                 logger.error(f"Failed to get local storage usage: {e}")
                 return jsonify({'error': str(e)}), 500
-        if not DASHBOARD_R2_BUCKET:
-            return jsonify({'error': 'R2 not configured (DASHBOARD_R2_BUCKET is empty)'}), 503
+        # DASHBOARD_R2_BUCKET has a non-empty default, so the old emptiness check
+        # never fired and an unconfigured server leaked
+        # "'NoneType' object has no attribute 'get_paginator'" into the dashboard.
+        if s3_client is None or not DASHBOARD_R2_BUCKET:
+            return jsonify({'error': 'R2 is not configured on this server'}), 503
         try:
             usage = get_r2_bucket_usage(DASHBOARD_R2_BUCKET)
             usage['backend'] = 'r2'
@@ -156,8 +159,11 @@ def register_routes(
             except Exception as e:
                 logger.error(f"Failed to clear local storage: {e}")
                 return jsonify({'error': str(e)}), 500
-        if not DASHBOARD_R2_BUCKET:
-            return jsonify({'error': 'R2 not configured (DASHBOARD_R2_BUCKET is empty)'}), 503
+        # DASHBOARD_R2_BUCKET has a non-empty default, so the old emptiness check
+        # never fired and an unconfigured server leaked
+        # "'NoneType' object has no attribute 'get_paginator'" into the dashboard.
+        if s3_client is None or not DASHBOARD_R2_BUCKET:
+            return jsonify({'error': 'R2 is not configured on this server'}), 503
         try:
             result = empty_r2_bucket(DASHBOARD_R2_BUCKET)
             usage = get_r2_bucket_usage(DASHBOARD_R2_BUCKET)

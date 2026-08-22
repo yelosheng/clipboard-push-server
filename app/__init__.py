@@ -347,7 +347,11 @@ def _cleanup_worker():
                 logger.error(f'R2 scheduled cleanup failed: {e}')
 
 
-_r2_ready = STORAGE_BACKEND == 'r2' and R2_ACCOUNT_ID != 'YOUR_ACCOUNT_ID_HERE' and R2_BUCKET_NAME
+# Checking against the one literal placeholder missed every other way of not
+# configuring R2 -- .env.example shipped 'your_account_id', which is not that
+# string, so the worker started anyway and failed on the hour, forever.
+# Whether the client exists is the question actually being asked.
+_r2_ready = STORAGE_BACKEND == 'r2' and s3_client is not None and R2_BUCKET_NAME
 _local_ready = STORAGE_BACKEND == 'local'
 if _r2_ready or _local_ready:
     socketio.start_background_task(_cleanup_worker)

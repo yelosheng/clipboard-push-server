@@ -4,15 +4,31 @@
 
 Works on any OS with Docker installed (Linux, macOS, Windows).
 
+No clone required — the prebuilt multi-arch image (`amd64` / `arm64`) is pulled
+from the GitHub Container Registry.
+
 ```bash
-git clone https://github.com/clipboardpush/clipboard-push-server.git
-cd clipboard-push-server
-cp .env.example .env
+mkdir clipboard-push-server && cd clipboard-push-server
+
+BASE=https://raw.githubusercontent.com/yelosheng/clipboard-push-server/master
+curl -fsSL -o docker-compose.yml $BASE/docker-compose.yml
+curl -fsSL -o .env              $BASE/.env.example
+
 # Edit .env and fill in your values
-docker-compose up -d
+docker compose up -d
 ```
 
 The server starts on port `5055`. To expose it via HTTPS, put Nginx or a reverse proxy in front.
+
+To update:
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+To build from source instead (only needed if you changed the code), see the
+"Building From Source" section of [README.md](README.md).
 
 ---
 

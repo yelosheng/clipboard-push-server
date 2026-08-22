@@ -11,8 +11,12 @@ python relay_server.py
 
 **Run with Docker:**
 ```bash
-docker-compose up -d
+docker compose up -d                                                   # pull the published image
+docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build   # build local source
 ```
+`docker-compose.yml` pulls `ghcr.io/yelosheng/clipboard-push-server`; it does
+**not** build. Use the build override when testing source changes — plain
+`up -d` silently reuses the old image.
 
 **Run tests:**
 ```bash

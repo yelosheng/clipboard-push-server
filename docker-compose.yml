@@ -1,7 +1,6 @@
-version: '3.8'
 services:
   server:
-    build: .
+    image: ghcr.io/yelosheng/clipboard-push-server:latest
     ports:
       - "5055:5055"
     env_file:

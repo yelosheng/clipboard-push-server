@@ -1,0 +1,9 @@
+# Override that builds the image from this checkout instead of pulling it.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+#
+# Use this when you have modified the source. For plain deployment the default
+# docker-compose.yml pulls a prebuilt multi-arch image and needs no build step.
+services:
+  server:
+    build: .

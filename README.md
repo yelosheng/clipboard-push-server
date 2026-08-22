@@ -21,19 +21,58 @@ A self-hosted relay server for the [Clipboard Push](https://clipboardpush.com) a
 - **In-dashboard settings** — configure storage backend, R2 credentials, and server options without editing files
 - **Room-based routing** — up to 2 devices per room; oldest device is evicted when limit exceeded
 - **Automatic storage cleanup** — files purged every 60 minutes (R2 bucket or local uploads folder)
-- **Docker support** — single `docker-compose up` deployment
+- **Docker support** — prebuilt multi-arch images (`amd64` / `arm64`); no build step, no cloned repo
 
 ## Quick Start (Docker)
+
+You do not need to clone the repository — two files are enough.
+
+```bash
+mkdir clipboard-push-server && cd clipboard-push-server
+
+BASE=https://raw.githubusercontent.com/yelosheng/clipboard-push-server/master
+curl -fsSL -o docker-compose.yml $BASE/docker-compose.yml
+curl -fsSL -o .env              $BASE/.env.example
+
+# Edit .env and fill in your values (see Configuration section)
+docker compose up -d
+```
+
+The server starts on port `5055` by default.
+
+Images are published to the GitHub Container Registry for `linux/amd64` and
+`linux/arm64`, so the same command works on an x86 box, a Raspberry Pi, or an
+ARM NAS:
+
+```
+ghcr.io/yelosheng/clipboard-push-server:latest   # newest release
+ghcr.io/yelosheng/clipboard-push-server:1.0.0    # pinned version
+ghcr.io/yelosheng/clipboard-push-server:master   # bleeding edge, untested
+```
+
+Pinning a version is recommended for anything you rely on.
+
+## Updating
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+## Building From Source
+
+Only needed if you have modified the code. `docker-compose.build.yml` swaps the
+prebuilt image for a local build:
 
 ```bash
 git clone https://github.com/yelosheng/clipboard-push-server.git
 cd clipboard-push-server
 cp .env.example .env
-# Edit .env and fill in your values (see Configuration section)
-docker-compose up -d
+docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
 ```
 
-The server starts on port `5055` by default.
+Note that `docker compose up` alone will **not** pick up source changes — the
+`--build` flag is required, otherwise Compose silently reuses the old image.
 
 ## Manual / Other Deployment Options
 

@@ -102,6 +102,10 @@ To fix it in place instead: `sudo chown -R 1000:1000 data`.
 **`FLASK_SECRET_KEY environment variable is not set`.** The value in `.env` is
 still blank. Generate one with `openssl rand -hex 32`.
 
+**`Invalid endpoint: https://your_account_id.r2.cloudflarestorage.com`.**
+The R2 placeholders in `.env` were left as-is. Comment them out — clipboard
+text sync does not need a storage backend — or fill in real values.
+
 **Check what actually happened:**
 
 ```bash

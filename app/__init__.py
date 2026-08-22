@@ -146,15 +146,24 @@ _fcm_init()
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-s3_client = boto3.client(
-    's3',
-    endpoint_url=f'https://{R2_ACCOUNT_ID}.r2.cloudflarestorage.com',
-    aws_access_key_id=R2_ACCESS_KEY_ID,
-    aws_secret_access_key=R2_SECRET_ACCESS_KEY,
-    config=Config(signature_version='s3v4'),
-    region_name='auto',
-    verify=False,
-)
+# boto3 validates the endpoint host while *building* the client, so an unset or
+# placeholder R2_ACCOUNT_ID raises ValueError right here -- before the
+# STORAGE_BACKEND branch below ever runs. That killed every deployment without
+# a Cloudflare account, including local-storage and text-only ones that never
+# touch R2. Keep it non-fatal and let the backends below decide what is usable.
+try:
+    s3_client = boto3.client(
+        's3',
+        endpoint_url=f'https://{R2_ACCOUNT_ID}.r2.cloudflarestorage.com',
+        aws_access_key_id=R2_ACCESS_KEY_ID,
+        aws_secret_access_key=R2_SECRET_ACCESS_KEY,
+        config=Config(signature_version='s3v4'),
+        region_name='auto',
+        verify=False,
+    )
+except Exception as e:
+    s3_client = None
+    logger.warning(f'R2 client unavailable ({e}); file relay through R2 is disabled')
 
 if STORAGE_BACKEND == 'local':
     if LOCAL_STORAGE_PATH:
@@ -162,6 +171,12 @@ if STORAGE_BACKEND == 'local':
         logger.info(f'Storage backend: local ({LOCAL_STORAGE_PATH})')
     else:
         logger.error('STORAGE_BACKEND=local but LOCAL_STORAGE_PATH is empty — falling back to r2 mode')
+elif s3_client is None:
+    logger.error(
+        'STORAGE_BACKEND=r2 but no usable R2 configuration was found. '
+        'Clipboard text sync is unaffected; file transfer will fail until '
+        'R2_ACCOUNT_ID and the keys are set, or STORAGE_BACKEND=local is used.'
+    )
 else:
     try:
         logger.info(f'Verifying R2 Connection to bucket: {R2_BUCKET_NAME}...')

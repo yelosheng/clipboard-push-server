@@ -191,6 +191,9 @@ def register_routes(
                 'expires_in': 300,
             })
 
+        if s3_client is None:
+            return jsonify({'error': 'File storage is not configured on this server'}), 503
+
         try:
             presigned_url = s3_client.generate_presigned_url(
                 'put_object',

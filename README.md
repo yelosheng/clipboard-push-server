@@ -25,39 +25,32 @@ A self-hosted relay server for the [Clipboard Push](https://clipboardpush.com) a
 
 ## Quick Start (Docker)
 
-Grab the compose file:
+Download the two files, edit `.env`, start it:
 
 ```bash
+mkdir clipboard-push-server && cd clipboard-push-server
+
 curl -O https://raw.githubusercontent.com/yelosheng/clipboard-push-server/master/docker-compose.yml
+curl -o .env https://raw.githubusercontent.com/yelosheng/clipboard-push-server/master/.env.example
+
+nano .env
+docker compose up -d
 ```
 
-Create a `.env` next to it with two lines:
+Two values in `.env` need filling in; the rest are optional and documented in
+the file itself.
 
 ```ini
-FLASK_SECRET_KEY=paste_the_openssl_output_here
-ADMIN_PASSWORD=your_dashboard_password
-```
-
-Generate the secret with `openssl rand -hex 32`. It is required — the server
-refuses to start without it. Quotes are not needed; the only character that
-needs care is `#`, which starts a comment, so wrap a value containing one in
-double quotes.
-
-Start it:
-
-```bash
-docker compose up -d
+FLASK_SECRET_KEY=      # required — generate with: openssl rand -hex 32
+ADMIN_PASSWORD=        # dashboard login
 ```
 
 The dashboard is at `http://your-server:5055/dashboard`. You can change the
 password there afterwards, which stores a hash in `./data` and takes over from
 `ADMIN_PASSWORD`.
 
-Every other setting is optional — see [Configuration](#configuration) below, or
-[.env.example](.env.example) for a commented template.
-
-> Run this in its own directory: `./data` is created next to the compose file
-> and holds the database, settings, and uploads.
+`./data` is created next to the compose file and holds the database, settings,
+and uploads — which is why this wants its own directory.
 
 Images are published to the GitHub Container Registry for `linux/amd64` and
 `linux/arm64`, so the same command works on an x86 box, a Raspberry Pi, or an

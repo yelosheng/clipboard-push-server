@@ -3,7 +3,7 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.8%2B-3776AB.svg)](https://www.python.org)
 [![Flask](https://img.shields.io/badge/Flask-3.0-lightgrey.svg)](https://flask.palletsprojects.com)
-[![Docker](https://img.shields.io/badge/Docker-supported-2496ED.svg)](https://www.docker.com)
+[![Container image](https://img.shields.io/badge/ghcr.io-amd64%20%7C%20arm64-2496ED.svg)](https://github.com/yelosheng/clipboard-push-server/pkgs/container/clipboard-push-server)
 
 **Related:** [Website](https://clipboardpush.com) · [Android App](https://github.com/yelosheng/clipboard-push-android) · [PC Client (Windows)](https://github.com/yelosheng/clipboard-push-win32)
 
@@ -94,7 +94,23 @@ Copy `.env.example` to `.env` and fill in the following:
 | `R2_SECRET_ACCESS_KEY` | If `r2` | R2 API token secret |
 | `R2_BUCKET_NAME` | If `r2` | R2 bucket name for file storage |
 | `DASHBOARD_R2_BUCKET` | If `r2` | R2 bucket name shown in dashboard stats (can be same as above) |
+| `FIREBASE_CREDENTIALS_PATH` | No | Service account JSON for FCM push. Unset = FCM disabled, Socket.IO only. Under Docker see the note below |
 | `FLASK_DEBUG` | No | Set to `1` for debug mode (never use in production) |
+
+**FCM credentials under Docker:** `FIREBASE_CREDENTIALS_PATH` points at a file
+*inside* the container, and the image deliberately does not contain one. The
+only directory mounted from the host is `./data`, so put the service account
+JSON there and point at it through that mount:
+
+```bash
+cp ~/Downloads/firebase-service-account.json ./data/
+```
+```ini
+FIREBASE_CREDENTIALS_PATH=/app/data/firebase-service-account.json
+```
+
+Leaving the variable unset is fine — FCM is optional, and without it Socket.IO
+simply becomes the only delivery channel.
 
 **Text-only mode:** If you don't configure any storage backend, the server works fine for clipboard text sync. File transfer will be unavailable.
 

@@ -86,6 +86,29 @@ docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
 Note that `docker compose up` alone will **not** pick up source changes — the
 `--build` flag is required, otherwise Compose silently reuses the old image.
 
+## Troubleshooting
+
+**`unable to open database file`, container restarting.** An older image ran
+unprivileged against a `./data` that Docker had created as root. Pull the
+current image — its entrypoint takes ownership of the directory on start:
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+To fix it in place instead: `sudo chown -R 1000:1000 data`.
+
+**`FLASK_SECRET_KEY environment variable is not set`.** The value in `.env` is
+still blank. Generate one with `openssl rand -hex 32`.
+
+**Check what actually happened:**
+
+```bash
+docker compose ps          # "Restarting" means it is crash-looping
+docker compose logs --tail=40
+```
+
 ## Manual / Other Deployment Options
 
 See [DEPLOY.md](DEPLOY.md) for full guides covering Linux (Debian/Ubuntu/CentOS), macOS local dev, Nginx reverse proxy, SSL, and systemd setup.

@@ -34,6 +34,10 @@ curl -O https://raw.githubusercontent.com/yelosheng/clipboard-push-server/master
 Open it and replace the two `CHANGE_ME` values — a random secret and your
 dashboard password. Everything else is optional and already commented out.
 
+Keep the quotes around them. A value starting with `@`, `%`, `` ` `` or `*` is a
+YAML syntax error without them, and anything following a `#` is silently
+discarded — so `ADMIN_PASSWORD: pass #1` would quietly become `pass`.
+
 ```bash
 docker compose up -d
 ```

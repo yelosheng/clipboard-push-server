@@ -7,12 +7,15 @@ services:
       - ./data:/app/data
     restart: unless-stopped
     environment:
+      # Keep the quotes. Without them a value starting with @ % ` or *
+      # is a YAML syntax error, and anything after a # is silently dropped.
+
       # ---- Required. The server refuses to start without this one. ----
       # Generate with:  openssl rand -hex 32
-      FLASK_SECRET_KEY: CHANGE_ME
+      FLASK_SECRET_KEY: "CHANGE_ME"
 
       # ---- Dashboard login password (http://your-server:5055/dashboard) ----
-      ADMIN_PASSWORD: CHANGE_ME
+      ADMIN_PASSWORD: "CHANGE_ME"
 
       # ---- Everything below is optional ----
 
@@ -20,16 +23,16 @@ services:
       # only file transfer needs it.
       #   local = store on this server's disk, no cloud account needed
       #   r2    = Cloudflare R2 (default)
-      # STORAGE_BACKEND: local
-      # LOCAL_STORAGE_BASE_URL: https://your.domain.com
+      # STORAGE_BACKEND: "local"
+      # LOCAL_STORAGE_BASE_URL: "https://your.domain.com"
 
       # Cloudflare R2, only when STORAGE_BACKEND is r2
-      # R2_ACCOUNT_ID: ...
-      # R2_ACCESS_KEY_ID: ...
-      # R2_SECRET_ACCESS_KEY: ...
-      # R2_BUCKET_NAME: clipboard-push-relay
-      # DASHBOARD_R2_BUCKET: clipboard-push-relay
+      # R2_ACCOUNT_ID: "..."
+      # R2_ACCESS_KEY_ID: "..."
+      # R2_SECRET_ACCESS_KEY: "..."
+      # R2_BUCKET_NAME: "clipboard-push-relay"
+      # DASHBOARD_R2_BUCKET: "clipboard-push-relay"
 
       # Firebase push. Put the service account JSON in ./data first --
       # that directory is the only one mounted into the container.
-      # FIREBASE_CREDENTIALS_PATH: /app/data/firebase-service-account.json
+      # FIREBASE_CREDENTIALS_PATH: "/app/data/firebase-service-account.json"

@@ -5,16 +5,22 @@
 Works on any OS with Docker installed (Linux, macOS, Windows).
 
 No clone required — the prebuilt multi-arch image (`amd64` / `arm64`) is pulled
-from the GitHub Container Registry. One file is the whole deployment.
+from the GitHub Container Registry.
 
 ```bash
 curl -O https://raw.githubusercontent.com/yelosheng/clipboard-push-server/master/docker-compose.yml
-# replace the two CHANGE_ME values in it
+
+cat > .env <<EOF
+FLASK_SECRET_KEY=$(openssl rand -hex 32)
+ADMIN_PASSWORD=change_this
+EOF
+
 docker compose up -d
 ```
 
 Run it in its own directory — `./data` is created alongside the compose file and
-holds the database, settings, and uploads.
+holds the database, settings, and uploads. See the Configuration section of
+[README.md](README.md) for the optional settings.
 
 The server starts on port `5055`. To expose it via HTTPS, put Nginx or a reverse proxy in front.
 

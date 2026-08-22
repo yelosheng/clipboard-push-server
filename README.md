@@ -25,24 +25,36 @@ A self-hosted relay server for the [Clipboard Push](https://clipboardpush.com) a
 
 ## Quick Start (Docker)
 
-One file, one command. No clone, no `.env`, no build.
+Grab the compose file:
 
 ```bash
 curl -O https://raw.githubusercontent.com/yelosheng/clipboard-push-server/master/docker-compose.yml
 ```
 
-Open it and replace the two `CHANGE_ME` values — a random secret and your
-dashboard password. Everything else is optional and already commented out.
+Create a `.env` next to it with two lines:
 
-Keep the quotes around them. A value starting with `@`, `%`, `` ` `` or `*` is a
-YAML syntax error without them, and anything following a `#` is silently
-discarded — so `ADMIN_PASSWORD: pass #1` would quietly become `pass`.
+```ini
+FLASK_SECRET_KEY=paste_the_openssl_output_here
+ADMIN_PASSWORD=your_dashboard_password
+```
+
+Generate the secret with `openssl rand -hex 32`. It is required — the server
+refuses to start without it. Quotes are not needed; the only character that
+needs care is `#`, which starts a comment, so wrap a value containing one in
+double quotes.
+
+Start it:
 
 ```bash
 docker compose up -d
 ```
 
-The dashboard is at `http://your-server:5055/dashboard`.
+The dashboard is at `http://your-server:5055/dashboard`. You can change the
+password there afterwards, which stores a hash in `./data` and takes over from
+`ADMIN_PASSWORD`.
+
+Every other setting is optional — see [Configuration](#configuration) below, or
+[.env.example](.env.example) for a commented template.
 
 > Run this in its own directory: `./data` is created next to the compose file
 > and holds the database, settings, and uploads.
@@ -74,10 +86,9 @@ prebuilt image for a local build:
 ```bash
 git clone https://github.com/yelosheng/clipboard-push-server.git
 cd clipboard-push-server
+cp .env.example .env          # then edit it
 docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
 ```
-
-Settings still come from `docker-compose.yml`, same as above.
 
 Note that `docker compose up` alone will **not** pick up source changes — the
 `--build` flag is required, otherwise Compose silently reuses the old image.
@@ -88,9 +99,7 @@ See [DEPLOY.md](DEPLOY.md) for full guides covering Linux (Debian/Ubuntu/CentOS)
 
 ## Configuration
 
-With Docker, these go in the `environment:` block of `docker-compose.yml`.
-For a manual install, copy `.env.example` to `.env` instead. Either way the
-names are the same:
+All settings live in `.env`. Copy `.env.example` to `.env` for a commented starting point:
 
 | Variable | Required | Description |
 |---|---|---|
@@ -114,11 +123,8 @@ is the only host directory mounted in, so the JSON has to travel through it:
 ```bash
 cp ~/Downloads/firebase-service-account.json ./data/
 ```
-
-then uncomment the matching line in `docker-compose.yml`:
-
-```yaml
-FIREBASE_CREDENTIALS_PATH: /app/data/firebase-service-account.json
+```ini
+FIREBASE_CREDENTIALS_PATH=/app/data/firebase-service-account.json
 ```
 
 Leaving it unset is fine — FCM is optional, and without it Socket.IO simply

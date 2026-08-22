@@ -25,20 +25,23 @@ A self-hosted relay server for the [Clipboard Push](https://clipboardpush.com) a
 
 ## Quick Start (Docker)
 
-You do not need to clone the repository — two files are enough.
+One file, one command. No clone, no `.env`, no build.
 
 ```bash
-mkdir clipboard-push-server && cd clipboard-push-server
+curl -O https://raw.githubusercontent.com/yelosheng/clipboard-push-server/master/docker-compose.yml
+```
 
-BASE=https://raw.githubusercontent.com/yelosheng/clipboard-push-server/master
-curl -fsSL -o docker-compose.yml $BASE/docker-compose.yml
-curl -fsSL -o .env              $BASE/.env.example
+Open it and replace the two `CHANGE_ME` values — a random secret and your
+dashboard password. Everything else is optional and already commented out.
 
-# Edit .env and fill in your values (see Configuration section)
+```bash
 docker compose up -d
 ```
 
-The server starts on port `5055` by default.
+The dashboard is at `http://your-server:5055/dashboard`.
+
+> Run this in its own directory: `./data` is created next to the compose file
+> and holds the database, settings, and uploads.
 
 Images are published to the GitHub Container Registry for `linux/amd64` and
 `linux/arm64`, so the same command works on an x86 box, a Raspberry Pi, or an
@@ -67,9 +70,10 @@ prebuilt image for a local build:
 ```bash
 git clone https://github.com/yelosheng/clipboard-push-server.git
 cd clipboard-push-server
-cp .env.example .env
 docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
 ```
+
+Settings still come from `docker-compose.yml`, same as above.
 
 Note that `docker compose up` alone will **not** pick up source changes — the
 `--build` flag is required, otherwise Compose silently reuses the old image.
@@ -80,7 +84,9 @@ See [DEPLOY.md](DEPLOY.md) for full guides covering Linux (Debian/Ubuntu/CentOS)
 
 ## Configuration
 
-Copy `.env.example` to `.env` and fill in the following:
+With Docker, these go in the `environment:` block of `docker-compose.yml`.
+For a manual install, copy `.env.example` to `.env` instead. Either way the
+names are the same:
 
 | Variable | Required | Description |
 |---|---|---|
@@ -97,20 +103,22 @@ Copy `.env.example` to `.env` and fill in the following:
 | `FIREBASE_CREDENTIALS_PATH` | No | Service account JSON for FCM push. Unset = FCM disabled, Socket.IO only. Under Docker see the note below |
 | `FLASK_DEBUG` | No | Set to `1` for debug mode (never use in production) |
 
-**FCM credentials under Docker:** `FIREBASE_CREDENTIALS_PATH` points at a file
-*inside* the container, and the image deliberately does not contain one. The
-only directory mounted from the host is `./data`, so put the service account
-JSON there and point at it through that mount:
+**FCM credentials under Docker:** `FIREBASE_CREDENTIALS_PATH` names a path
+*inside* the container, and the image deliberately ships without one. `./data`
+is the only host directory mounted in, so the JSON has to travel through it:
 
 ```bash
 cp ~/Downloads/firebase-service-account.json ./data/
 ```
-```ini
-FIREBASE_CREDENTIALS_PATH=/app/data/firebase-service-account.json
+
+then uncomment the matching line in `docker-compose.yml`:
+
+```yaml
+FIREBASE_CREDENTIALS_PATH: /app/data/firebase-service-account.json
 ```
 
-Leaving the variable unset is fine — FCM is optional, and without it Socket.IO
-simply becomes the only delivery channel.
+Leaving it unset is fine — FCM is optional, and without it Socket.IO simply
+becomes the only delivery channel.
 
 **Text-only mode:** If you don't configure any storage backend, the server works fine for clipboard text sync. File transfer will be unavailable.
 

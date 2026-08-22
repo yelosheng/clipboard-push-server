@@ -5,18 +5,16 @@
 Works on any OS with Docker installed (Linux, macOS, Windows).
 
 No clone required — the prebuilt multi-arch image (`amd64` / `arm64`) is pulled
-from the GitHub Container Registry.
+from the GitHub Container Registry. One file is the whole deployment.
 
 ```bash
-mkdir clipboard-push-server && cd clipboard-push-server
-
-BASE=https://raw.githubusercontent.com/yelosheng/clipboard-push-server/master
-curl -fsSL -o docker-compose.yml $BASE/docker-compose.yml
-curl -fsSL -o .env              $BASE/.env.example
-
-# Edit .env and fill in your values
+curl -O https://raw.githubusercontent.com/yelosheng/clipboard-push-server/master/docker-compose.yml
+# replace the two CHANGE_ME values in it
 docker compose up -d
 ```
+
+Run it in its own directory — `./data` is created alongside the compose file and
+holds the database, settings, and uploads.
 
 The server starts on port `5055`. To expose it via HTTPS, put Nginx or a reverse proxy in front.
 
